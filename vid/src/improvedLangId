@@ -2,6 +2,7 @@
 import sys
 import optparse
 from collections import defaultdict
+import random
 
 optparser = optparse.OptionParser()
 optparser.add_option("-t", "--train", dest="train", default="../data/train/", help="Data filename prefix (default=data)")
@@ -17,28 +18,51 @@ input_file = opts.input
 
 # Train data
 dicts = []
-
+totalSeen = defaultdict(float)
 for i in xrange(len(lang)):
   total = 0
-  temp = defaultdict(float)
+  temp = {}
   for line in open(train_dir + lang[i] + suffix):
     words = line.strip().split()
-    for word in words:      
-      temp[word] += 1
-    total += len(words)
-  for key in temp:
-    temp[key] /= float(total)
+    for (i, word) in enumerate(words):  
+      if word not in temp:
+        temp[word] = defaultdict(float)
+      if i == 0:
+        temp[word]["$"] += 1   
+      else:
+        temp[word][words[i - 1]] += 1
+      totalSeen[word] += 1
+
   dicts.append(temp)
 
+for d in dicts:
+  for key in d:
+      for val in d[key]:
+        d[key][val] /= totalSeen[key]
 
 # Classify language
 for line in open(input_file):
   words = line.strip().split()
   samples = []
   for d in dicts:
-    sample = 0
+    totalProb = 0
     for (i, word) in enumerate(words):
-       sample += d[word]
-    samples.append(sample)
+      if word in d:
+        addedProb = 0
+        if i == 0:
+          addedProb == d[word]["$"]
+        else:
+          addedProb = d[word][words[i - 1]]
+        if addedProb == 0:
+          addedProb = 0.001
+        totalProb += addedProb
+    samples.append(totalProb)
+
   max_index = samples.index(max(samples))
+  if sum(samples) == 0:
+    max_index = random.randint(0,4)
   print lang[max_index]
+
+
+
+
