@@ -10,7 +10,6 @@ optparser.add_option("-s", "--suffix", dest="suffix", default="_train", help="Da
 optparser.add_option("-i", "--input", dest="input", default="../data/dev/dev_set", help="Name of input file (default=data/dev/dev_set")
 
 (opts, _) = optparser.parse_args()
-
 lang = ['eng', 'fra', 'deu', 'ita', 'spa']
 suffix = opts.suffix
 train_dir = opts.train
@@ -18,49 +17,35 @@ input_file = opts.input
 
 # Train data
 dicts = []
-totalSeen = defaultdict(float)
+
+#Train data
 for i in xrange(len(lang)):
-  total = 0
-  temp = {}
+  langDict = defaultdict(int)
   for line in open(train_dir + lang[i] + suffix):
-    words = line.strip().split()
-    for (i, word) in enumerate(words):  
-      if word not in temp:
-        temp[word] = defaultdict(float)
-      if i == 0:
-        temp[word]["$"] += 1   
-      else:
-        temp[word][words[i - 1]] += 1
-      totalSeen[word] += 1
+    for j in range(len(line) - 2):
+      #increment trigram counts
+      trigram = line[j:j+3]
+      langDict[trigram] += 1
+  dicts.append(langDict)
 
-  dicts.append(temp)
 
-for d in dicts:
-  for key in d:
-      for val in d[key]:
-        d[key][val] /= totalSeen[key]
 
 # Classify language
 for line in open(input_file):
-  words = line.strip().split()
   samples = []
   for d in dicts:
-    totalProb = 0
-    for (i, word) in enumerate(words):
-      if word in d:
-        addedProb = 0
-        if i == 0:
-          addedProb == d[word]["$"]
-        else:
-          addedProb = d[word][words[i - 1]]
-        if addedProb == 0:
-          addedProb = 0.001
-        totalProb += addedProb
-    samples.append(totalProb)
+    lineTrigrams = defaultdict(int)
+    #find trigrams
+    for i in xrange(len(line) - 2):
+      lineTrigrams[line[i:i+3]] += 1
 
+    dotProd = 0
+    for key in set(lineTrigrams.keys()) or set(d.keys()):
+      dotProd += lineTrigrams[key] * d[key]
+
+    dotProd /= float(len(lineTrigrams) * len(d))
+    samples.append(dotProd)
   max_index = samples.index(max(samples))
-  if sum(samples) == 0:
-    max_index = random.randint(0,4)
   print lang[max_index]
 
 
